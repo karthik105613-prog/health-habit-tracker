@@ -1,0 +1,961 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HealthBuddy — Frontend Prototype (with Digital Twin & AI Habit Designer)</title>
+  <meta name="description" content="Frontend-only single-file prototype: dashboard, BMI, logs, and a Doctor Bot chat + Digital Twin & AI Habit Designer" />
+  <style>
+    /* ----------------------------------------
+       Theme tokens
+       ---------------------------------------- */
+    :root{
+      --bg:#0f1724; --card:#0b1220; --glass: rgba(255,255,255,0.06);
+      --accent1-start:#7b61ff; --accent1-end:#2dd4bf;
+      --glass-border: rgba(255,255,255,0.06);
+      --muted: #9aa4b2;
+      --text: #e6eef6;
+      --success: #2dd4bf;
+      --danger: #ff7ab6;
+      --glass-strong: rgba(255,255,255,0.03);
+      --radius: 12px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    /* Light theme (toggle to .light on body) */
+    body.light {
+      --bg: #f7fafc;
+      --card: #ffffff;
+      --glass: rgba(2,6,23,0.02);
+      --glass-border: rgba(2,6,23,0.06);
+      --muted: #475569;
+      --text: #06111a;
+      --glass-strong: rgba(2,6,23,0.04);
+    }
+
+    /* ----------------------------------------
+       Reset + base
+       ---------------------------------------- */
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:
+      radial-gradient(1200px 600px at 10% 10%, rgba(45,212,191,0.04), transparent 6%),
+      radial-gradient(900px 500px at 90% 90%, rgba(123,97,255,0.03), transparent 8%),
+      var(--bg);
+      color:var(--text);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      transition:background 300ms ease,color 300ms ease;
+    }
+    a{color:inherit;text-decoration:none}
+    header{display:flex;align-items:center;gap:18px;padding:18px 22px;border-bottom:1px solid var(--glass-strong);position:sticky;top:0;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);backdrop-filter: blur(6px);z-index:10}
+    .logo{display:flex;gap:10px;align-items:center}
+    .logo .mark{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--accent1-start),var(--accent1-end));display:grid;place-items:center;font-weight:800;color:#021220;box-shadow:0 6px 30px rgba(43,37,57,0.45)}
+    h1{font-size:18px;margin:0}
+    .sub{color:var(--muted);font-size:13px}
+
+    /* layout */
+    .container{display:grid;grid-template-columns:320px 1fr 420px;gap:22px;padding:18px 22px 32px;align-items:start}
+    @media (max-width:1100px){ .container{grid-template-columns:1fr; padding:12px} .aside-hide{display:none} .logo .mark{width:40px;height:40px} }
+
+    /* left nav */
+    nav{background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);border-radius:var(--radius);padding:16px;height:calc(100vh - 120px);overflow:auto;backdrop-filter:blur(6px);border:1px solid var(--glass-border)}
+    .profile{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+    .avatar{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,#ffd6a5,#ff7ab6);display:grid;place-items:center;font-weight:700;color:#0d1222}
+    .nav-links{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+    .nav-links button{background:transparent;border:0;color:var(--muted);padding:10px;border-radius:10px;text-align:left;cursor:pointer;transition:all 180ms}
+    .nav-links button:hover{background:rgba(255,255,255,0.02);color:var(--text)}
+    .nav-links button.active{background:linear-gradient(90deg, rgba(255,255,255,0.02), transparent);color:var(--text);box-shadow:inset 0 -1px 0 var(--glass-strong)}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.02);color:var(--muted);font-size:13px}
+
+    /* main area */
+    main{height:calc(100vh - 120px);overflow:auto;padding:18px;border-radius:var(--radius);background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);border:1px solid var(--glass-border)}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 8px 30px rgba(2,6,23,0.4)}
+    .big{grid-column:span 2}
+    .stat{display:flex;justify-content:space-between;align-items:center}
+    .stat .left{display:flex;flex-direction:column}
+    .stat .num{font-size:28px;font-weight:700}
+    .muted{color:var(--muted);font-size:13px}
+
+    /* aside */
+    aside{height:calc(100vh - 120px);padding:18px;border-radius:var(--radius);background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);border:1px solid var(--glass-border);overflow:auto}
+
+    /* forms */
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type=text], input[type=number], select, textarea{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;outline:none}
+    input::placeholder{color:rgba(255,255,255,0.2)}
+    .row{display:flex;gap:10px}
+
+    /* chat */
+    .chat-window{display:flex;flex-direction:column;height:420px;border-radius:12px;padding:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);border:1px solid rgba(255,255,255,0.03)}
+    .messages{flex:1;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
+    .msg{max-width:80%;padding:10px;border-radius:10px}
+    .msg.user{align-self:flex-end;background:linear-gradient(90deg,var(--accent1-end),var(--accent1-start));color:#021220}
+    .msg.bot{align-self:flex-start;background:rgba(255,255,255,0.03);color:var(--muted)}
+    .chat-input{display:flex;gap:8px;margin-top:10px}
+    .btn{padding:10px 12px;border-radius:10px;border:0;background:linear-gradient(90deg,var(--accent1-start),var(--accent1-end));color:#021220;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+
+    /* digital twin */
+    .digital-twin {
+      position:absolute; top:86px; right:46px; width:84px; height:84px;
+      border-radius:16px; display:flex; align-items:center; justify-content:center;
+      font-size:38px; transition:all 400ms ease; box-shadow:0 14px 40px rgba(0,0,0,0.45);
+      border:1px solid rgba(255,255,255,0.03); z-index:5; cursor:default;
+    }
+    .digital-twin .label {
+      position:absolute; bottom:-30px; left:50%; transform:translateX(-50%);
+      font-size:12px; color:var(--muted);
+    }
+
+    /* small helpers */
+    .muted-compact{color:var(--muted);font-size:12px}
+    footer{padding:18px;text-align:center;color:var(--muted);font-size:13px}
+
+    /* transitions */
+    .fade-enter{opacity:0;transform:translateY(8px)}
+    .fade-enter-active{opacity:1;transform:none;transition:all 240ms ease}
+
+    /* mini chart */
+    canvas{border-radius:8px;background:transparent}
+
+    /* responsive tweaks */
+    @media (max-width:700px){
+      .row{flex-direction:column}
+      .digital-twin{display:none}
+      .chat-window{height:320px}
+      .grid{grid-template-columns:1fr}
+    }
+
+    /* subtle focus */
+    input:focus, textarea:focus, button:focus { outline: 2px solid rgba(123,97,255,0.12); outline-offset:2px; }
+
+    /* small badge */
+    .badge { display:inline-block;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.03);font-size:12px;color:var(--muted) }
+
+    /* compact table */
+    table { width:100%; border-collapse:collapse; font-size:13px }
+    table td, table th { padding:6px; border-bottom:1px solid rgba(255,255,255,0.03); text-align:left }
+
+    /* water tracker specific */
+    .water-tracker { display:flex; flex-direction:column; gap:8px; }
+    .water-progress { height:12px; background:rgba(255,255,255,0.03); border-radius:8px; overflow:hidden; }
+    .water-progress > .fill { height:100%; width:0; background:linear-gradient(90deg,var(--accent1-end),var(--accent1-start)); transition:width 600ms; }
+    .water-controls { display:flex; gap:8px; align-items:center }
+    .small { font-size:12px; color:var(--muted) }
+    .countdown { font-weight:700; font-size:14px }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <div class="mark">HB</div>
+      <div>
+        <h1>HealthBuddy</h1>
+        <div class="sub">Personal health dashboard — prototype (frontend only)</div>
+      </div>
+    </div>
+
+    <div style="margin-left:auto;display:flex;gap:12px;align-items:center">
+      <div style="display:flex;flex-direction:column;align-items:flex-end">
+        <div style="font-weight:600" id="greetingSmall">Hello, Karthi</div>
+        <div class="muted" id="timeSmall">—</div>
+      </div>
+      <button id="themeBtn" class="btn ghost" title="Toggle theme">Toggle theme</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <nav>
+      <div class="profile">
+        <div class="avatar" id="navAvatar">K</div>
+        <div>
+          <div style="font-weight:700" id="navName">Karthi</div>
+          <div class="muted" id="navMeta">Student · 22 yrs</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label>Quick profile</label>
+        <div class="row">
+          <input id="inpName" type="text" placeholder="Name" value="Karthi">
+        </div>
+        <div class="row" style="margin-top:8px">
+          <input id="inpAge" type="number" placeholder="Age" value="22" min="0">
+          <input id="inpHeight" type="number" placeholder="cm" value="170" min="0">
+        </div>
+        <div class="row" style="margin-top:8px">
+          <input id="inpWeight" type="number" placeholder="kg" value="68" min="0">
+          <select id="inpGender"><option>Male</option><option>Female</option><option>Other</option></select>
+        </div>
+        <div style="margin-top:8px;text-align:right"><button class="btn" onclick="updateProfile()">Update</button></div>
+      </div>
+
+      <div class="nav-links" role="navigation" aria-label="Main navigation">
+        <button class="active" onclick="show('dashboard')">Dashboard</button>
+        <button onclick="show('bmi')">BMI</button>
+        <button onclick="show('logs')">Food & Water</button>
+        <button onclick="show('sleep')">Sleep</button>
+        <button onclick="show('habits')">Habits</button>
+        <button onclick="show('doctor')">Doctor Bot</button>
+      </div>
+
+      <div style="margin-top:18px" class="pill" id="premiumTag">Premium: Off</div>
+    </nav>
+
+    <main id="main">
+      <section id="dashboard" class="card big" role="region" aria-label="Dashboard">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700;font-size:18px">Welcome back, <span id="nameTitle">Karthi</span> 👋</div>
+            <div class="muted">Here's a snapshot of your health today</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="pill">Streak: <strong style="margin-left:6px" id="streakVal">3 days</strong></div>
+            <div class="pill">Next goal: <span id="nextGoal">Water 1.5L</span></div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px" class="grid">
+          <div class="card">
+            <div class="stat">
+              <div class="left"><div class="muted">Current BMI</div><div class="num" id="bmiVal">—</div></div>
+              <div style="text-align:right"><div class="muted">Goal</div><div style="font-weight:700">22.0</div></div>
+            </div>
+            <div style="height:18px;margin-top:12px;background:rgba(255,255,255,0.03);border-radius:10px;overflow:hidden">
+              <div id="bmiProgress" style="height:100%;width:0;background:linear-gradient(90deg,var(--accent1-end),var(--accent1-start));border-radius:10px;transition:width 600ms"></div>
+            </div>
+            <div style="margin-top:10px" class="muted-compact">Tip: Keep weight steady and track slowly-changing metrics weekly.</div>
+          </div>
+
+          <div class="card">
+            <div class="muted">Water intake</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+              <div style="font-weight:700;font-size:22px" id="waterVal">0 L</div>
+              <div>
+                <button class="btn ghost" onclick="addWater(0.25)">+250 ml</button>
+                <button class="btn" onclick="addWater(0.5)">+500 ml</button>
+              </div>
+            </div>
+
+            <!-- New Water Tracker UI -->
+            <div style="margin-top:12px" class="water-tracker">
+              <div class="water-progress" aria-hidden="true">
+                <div id="waterFill" class="fill" style="width:0%"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div class="small">Glasses today: <strong id="glassCount">0</strong> / <span id="glassTarget">8</span></div>
+                <div class="small">Glass size: <strong id="glassSizeLabel">250 ml</strong></div>
+              </div>
+              <div class="water-controls">
+                <button class="btn" onclick="addGlass(1)">+1 glass</button>
+                <button class="btn ghost" onclick="addGlass(0.5)">+0.5 glass</button>
+                <button class="btn ghost" onclick="resetWaterDay()">Reset day</button>
+                <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+                  <label class="small" style="margin:0">Reminders</label>
+                  <input id="remToggle" type="checkbox" style="width:auto" />
+                </div>
+              </div>
+
+              <div style="display:flex;gap:10px;align-items:center">
+                <div class="small">Interval (hours)</div>
+                <input id="remInterval" type="number" min="1" max="12" value="2" style="width:70px" />
+                <div class="small">Next: <span id="nextReminder" class="countdown">—</span></div>
+                <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+                  <label class="small" style="margin:0">Sound</label>
+                  <input id="remSound" type="checkbox" checked />
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:12px" class="muted-compact">Tip: Drink a glass after waking up for a hydration boost.</div>
+          </div>
+
+          <div class="card">
+            <div class="muted">Today's Steps</div>
+            <div style="font-weight:700;font-size:22px;margin-top:8px" id="stepsVal">0</div>
+            <div style="margin-top:10px"><div class="muted-compact">Distance: <span id="distVal">0 km</span></div></div>
+          </div>
+
+          <div class="card">
+            <div class="muted">Sleep (last night)</div>
+            <div style="font-weight:700;font-size:22px;margin-top:8px" id="sleepVal">0 hr</div>
+            <div style="margin-top:8px" class="muted-compact">Sleep quality: <span id="sleepQual">—</span></div>
+          </div>
+
+          <div class="card" style="grid-column:span 2;margin-top:6px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="muted">Food log (quick)</div>
+              <div class="muted">Calories today: <strong id="calVal">0</strong></div>
+            </div>
+            <div style="margin-top:10px" class="row">
+              <input id="foodInput" type="text" placeholder="e.g. 1 plate rice, 1 egg">
+              <button class="btn" onclick="addFood()">Log</button>
+            </div>
+            <div id="foodList" style="margin-top:12px" class="muted">No items yet</div>
+          </div>
+        </div>
+
+        <div id="digitalTwin" class="digital-twin" aria-hidden="false" title="Digital Twin — hydration & sleep">
+          <div id="digitalTwinEmoji">🙂</div>
+          <div class="label" id="digitalTwinLabel">Twin</div>
+        </div>
+      </section>
+
+      <section id="bmi" class="card" style="display:none" role="region" aria-label="BMI Calculator">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700">BMI Calculator</div>
+            <div class="muted">Enter height and weight and press Calculate</div>
+          </div>
+          <div class="muted">BMI categories: Underweight &lt;18.5, Normal 18.5–24.9, Overweight 25–29.9, Obese ≥30</div>
+        </div>
+        <div style="margin-top:14px" class="row">
+          <div style="flex:1">
+            <label>Height (cm)</label>
+            <input id="bHeight" type="number" value="170">
+          </div>
+          <div style="flex:1">
+            <label>Weight (kg)</label>
+            <input id="bWeight" type="number" value="68">
+          </div>
+        </div>
+        <div style="margin-top:12px;text-align:right"><button class="btn" onclick="calcBMI()">Calculate</button></div>
+        <div style="margin-top:12px" id="bmiOutput" class="muted">—</div>
+      </section>
+
+      <section id="logs" class="card" style="display:none" role="region" aria-label="Food and Water Logs">
+        <div style="font-weight:700">Food & Water Logs</div>
+        <div style="margin-top:8px" class="muted">Add meals and water. This is local-only demo data stored in browser memory (persisted to your browser).</div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <input id="mealName" type="text" placeholder="Meal name (e.g. Breakfast)">
+          <input id="mealCal" type="number" placeholder="Calories">
+          <button class="btn" onclick="manualAddMeal()">Add Meal</button>
+        </div>
+        <div style="margin-top:12px" id="mealsArea" class="muted">No meals yet</div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn" onclick="clearMeals()">Clear meals</button>
+          <button class="btn ghost" onclick="downloadBackup()">Download backup</button>
+        </div>
+      </section>
+
+      <section id="sleep" class="card" style="display:none" role="region" aria-label="Sleep Tracker">
+        <div style="font-weight:700">Sleep Tracker</div>
+        <div class="muted">Log hours and get an AI-style sleep score (heuristic)</div>
+        <div style="margin-top:8px" class="row">
+          <input id="sleepHours" type="number" placeholder="Hours" step="0.1" min="0">
+          <button class="btn" onclick="logSleep()">Log Sleep</button>
+        </div>
+        <div style="margin-top:10px" id="sleepArea" class="muted">No data</div>
+      </section>
+
+      <section id="habits" class="card" style="display:none" role="region" aria-label="Habits">
+        <div style="font-weight:700">AI-Based Habit Analyzer & Designer</div>
+        <div class="muted">Enter a habit or goal and get a simple suggestion to improve consistency. The AI Designer builds a short plan.</div>
+
+        <div style="margin-top:8px" class="row">
+          <input id="habitName" type="text" placeholder="e.g. Walk 20 min">
+          <button class="btn" onclick="analyzeHabit()">Analyze</button>
+        </div>
+        <div style="margin-top:10px" id="habitResult" class="muted">—</div>
+
+        <div id="aiDesignerArea" style="margin-top:12px">
+          <label>AI Habit Designer</label>
+          <div class="row" style="margin-top:6px">
+            <input id="habitGoal" type="text" placeholder="e.g. I want more energy in the morning">
+            <button class="btn" onclick="aiHabitDesigner()">Design</button>
+          </div>
+          <div id="habitPlan" class="muted" style="margin-top:8px">—</div>
+        </div>
+      </section>
+
+      <section id="doctor" class="card" style="display:none" role="region" aria-label="Doctor Bot">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700">Doctor Bot</div>
+            <div class="muted">Simple interactive bot for symptom triage and advice (not a replacement for medical care)</div>
+          </div>
+          <div><button class="btn ghost" onclick="saveChat()">Export Chat</button></div>
+        </div>
+
+        <div style="margin-top:12px" class="chat-window">
+          <div id="messages" class="messages" aria-live="polite"></div>
+          <div class="chat-input">
+            <input id="chatInp" type="text" placeholder="Describe your symptoms or ask a question" style="flex:1" onkeydown="if(event.key==='Enter') sendChat()">
+            <button class="btn" onclick="sendChat()">Send</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <aside class="aside-hide">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700">Health Quick Actions</div>
+          <div class="muted">Shortcuts</div>
+        </div>
+        <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+          <button class="btn" onclick="addWater(0.25)">Drink 250ml</button>
+          <button class="btn ghost" onclick="addSteps(1000)">+1000 steps</button>
+          <button class="btn" onclick="addFoodSample()">Log sample meal</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div style="font-weight:700">Visual Analytics</div>
+        <div class="muted">Mini progress chart</div>
+        <canvas id="miniChart" width="360" height="120" style="width:100%;height:120px;margin-top:8px"></canvas>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div style="font-weight:700">Profile & Settings</div>
+        <div style="margin-top:8px" class="muted">Theme, privacy and backup (local demo)</div>
+        <div style="margin-top:8px">
+          <button class="btn ghost" onclick="downloadBackup()">Download backup</button>
+          <button class="btn" style="margin-left:8px" onclick="restoreDefault()">Reset demo</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer>Prototype UI • Frontend-only • Works in modern browsers</footer>
+
+  <script>
+    // ----------------------------
+    // HealthBuddy: app state & utilities (with water reminders)
+    // ----------------------------
+    const STORAGE_KEY = 'healthbuddy_v1';
+    const stateDefault = {
+      name: 'Karthi', age:22, height:170, weight:68,
+      water: 0, steps: 0, calories:0, meals:[], sleep:[], messages: [],
+      twin: { lastUpdated: Date.now(), mood: 'neutral', hydrationPct: 0, sleepLast: 0 },
+      habits: { streak: 3, lastCompleted: null },
+      prefs: { theme: 'dark' }, // or 'light'
+      waterPrefs: {
+        glassSizeMl: 250, // default glass size
+        targetGlasses: 8,
+        glassCountToday: 0,
+        lastResetDate: null,
+        remindersOn: true,
+        reminderIntervalHours: 2,
+        soundOn: true,
+        nextReminderAt: null
+      },
+      meta: { created: Date.now() }
+    };
+
+    // load and migrate state
+    function loadState(){
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw) return null;
+        const parsed = JSON.parse(raw);
+        // merge defaults to ensure new fields exist
+        return deepMerge(stateDefault, parsed);
+      } catch (e) { console.warn('Could not load state', e); return null; }
+    }
+    function deepMerge(a, b){
+      const out = Array.isArray(a) ? [] : {};
+      for(const k in a){
+        if(b && typeof b[k] !== 'undefined'){
+          if(typeof a[k] === 'object' && a[k] !== null && !Array.isArray(a[k])){
+            out[k] = deepMerge(a[k], b[k]);
+          } else {
+            out[k] = b[k];
+          }
+        } else {
+          out[k] = a[k];
+        }
+      }
+      // copy any extra keys from b
+      if(b){
+        for(const k in b){
+          if(typeof out[k] === 'undefined') out[k] = b[k];
+        }
+      }
+      return out;
+    }
+
+    function saveState(){
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) { console.warn('Could not save state', e); }
+    }
+
+    let state = loadState() || JSON.parse(JSON.stringify(stateDefault));
+
+    function $(id){ return document.getElementById(id) }
+    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+    // ----------------------------
+    // Water reminder utilities (core)
+    // ----------------------------
+    let reminderTimerId = null;
+    let countdownTimerId = null;
+    let audioCtx = null;
+
+    function startReminderScheduler(){
+      stopReminderScheduler();
+      if(!state.waterPrefs.remindersOn) return;
+      // ensure nextReminderAt exists
+      if(!state.waterPrefs.nextReminderAt){
+        scheduleNextReminderFromNow(state.waterPrefs.reminderIntervalHours);
+      }
+      // check every 5 seconds for due reminders
+      reminderTimerId = setInterval(checkAndFireReminder, 5000);
+      // update countdown every second
+      countdownTimerId = setInterval(updateCountdownDisplay, 1000);
+      updateCountdownDisplay();
+    }
+
+    function stopReminderScheduler(){
+      if(reminderTimerId) { clearInterval(reminderTimerId); reminderTimerId = null; }
+      if(countdownTimerId) { clearInterval(countdownTimerId); countdownTimerId = null; }
+      $('nextReminder').textContent = '—';
+    }
+
+    function scheduleNextReminderFromNow(hours){
+      const now = Date.now();
+      const next = now + Math.max(1, Number(hours) || 2) * 3600 * 1000;
+      state.waterPrefs.nextReminderAt = next;
+      saveState();
+      updateCountdownDisplay();
+    }
+
+    function checkAndFireReminder(){
+      if(!state.waterPrefs.remindersOn || !state.waterPrefs.nextReminderAt) return;
+      const now = Date.now();
+      if(now >= state.waterPrefs.nextReminderAt - 1000){ // due
+        // show reminder
+        showWaterReminder();
+        // schedule next
+        scheduleNextReminderFromNow(state.waterPrefs.reminderIntervalHours);
+      }
+    }
+
+    function showWaterReminder(){
+      const msg = 'Time for a glass of water — +1 glass?';
+      // browser notification
+      try {
+        if(window.Notification && Notification.permission === 'granted'){
+          const n = new Notification('HealthBuddy — Hydration Reminder', { body: msg });
+          n.onclick = () => window.focus();
+        } else if(window.Notification && Notification.permission !== 'denied'){
+          Notification.requestPermission().then(p => {
+            if(p === 'granted') new Notification('HealthBuddy — Hydration Reminder', { body: msg });
+          });
+        }
+      } catch (e) { /* ignore */ }
+
+      // toast + prompt (non-blocking)
+      toast(msg);
+      if(state.waterPrefs.soundOn) playReminderTone();
+      // visually highlight reminder briefly
+      const fill = $('waterFill');
+      if(fill){
+        fill.style.boxShadow = '0 0 18px rgba(45,212,191,0.8)';
+        setTimeout(()=> fill.style.boxShadow = '', 1200);
+      }
+    }
+
+    function playReminderTone(){
+      try {
+        if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sine';
+        o.frequency.value = 800;
+        g.gain.value = 0.02;
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start();
+        setTimeout(()=> { o.frequency.setValueAtTime(600, audioCtx.currentTime); }, 120);
+        setTimeout(()=> { o.stop(); }, 500);
+      } catch (e) { console.warn('Audio failed', e); }
+    }
+
+    // ----------------------------
+    // WATER: add glass and daily reset
+    // ----------------------------
+    function isSameDay(ts1, ts2){
+      const d1 = new Date(ts1), d2 = new Date(ts2);
+      return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+    }
+
+    function resetWaterIfNeeded(){
+      const today = new Date().toISOString().slice(0,10);
+      if(state.waterPrefs.lastResetDate !== today){
+        // new day -> reset glass count and water total
+        state.waterPrefs.glassCountToday = 0;
+        // optionally reset state.water (we'll keep cumulative but you may want to reset to encourage daily target)
+        state.water = 0;
+        state.waterPrefs.lastResetDate = today;
+        saveState();
+      }
+    }
+
+    function addGlass(count){
+      // count is number of glasses to add (1 or 0.5 etc)
+      resetWaterIfNeeded();
+      const glassSize = Number(state.waterPrefs.glassSizeMl) || 250;
+      const addedLiters = (glassSize * count) / 1000;
+      state.water = +(Number(state.water) + addedLiters).toFixed(2);
+      state.waterPrefs.glassCountToday = +(state.waterPrefs.glassCountToday + count).toFixed(2);
+      // update derived hydration percent
+      state.twin.hydrationPct = Math.min(100, Math.round((state.water / 2) * 100));
+      saveState();
+      refreshAll();
+      toast(`Logged ${Math.round(count * glassSize)} ml`);
+    }
+
+    function resetWaterDay(){
+      if(!confirm('Reset today\'s water?')) return;
+      state.water = 0;
+      state.waterPrefs.glassCountToday = 0;
+      state.twin.hydrationPct = 0;
+      state.waterPrefs.lastResetDate = new Date().toISOString().slice(0,10);
+      saveState();
+      refreshAll();
+      toast('Water reset for today');
+    }
+
+    // ----------------------------
+    // Existing app functions (fixed + integrated)
+    // ----------------------------
+    function nowTimeString(){ return new Date().toLocaleString(); }
+
+    function updateProfile(){
+      state.name = $('inpName').value || state.name;
+      state.age = Number($('inpAge').value) || state.age;
+      state.height = Number($('inpHeight').value) || state.height;
+      state.weight = Number($('inpWeight').value) || state.weight;
+      const gender = $('inpGender').value || 'Other';
+      $('nameTitle').textContent = state.name;
+      $('navName').textContent = state.name;
+      $('navAvatar').textContent = state.name?.charAt(0)?.toUpperCase() || 'U';
+      $('navMeta').textContent = `${gender} · ${state.age} yrs`;
+      const he = (state.height/100), bmi = state.weight/(he*he);
+      updateStateBMI(bmi);
+      saveState();
+      refreshAll();
+      toast('Profile updated (local demo)');
+    }
+
+    function calcBMI(){
+      const h = Number($('bHeight').value)/100;
+      const w = Number($('bWeight').value);
+      if(!h || !w) {
+        $('bmiOutput').textContent = 'Please enter valid height and weight.';
+        return;
+      }
+      const bmi = w/(h*h);
+      $('bmiOutput').innerHTML = `Your BMI is <strong>${bmi.toFixed(1)}</strong> — <em>${bmiCategory(bmi)}</em>`;
+      updateStateBMI(bmi);
+      state.height = Number($('bHeight').value);
+      state.weight = Number($('bWeight').value);
+      saveState();
+      refreshAll();
+    }
+
+    function bmiCategory(bmi){ if(bmi<18.5) return 'Underweight'; if(bmi<25) return 'Normal'; if(bmi<30) return 'Overweight'; return 'Obese' }
+    function updateStateBMI(bmi){ const pct = Math.max(6, Math.min(100, Math.round((bmi/30)*100))); $('bmiVal').textContent = bmi.toFixed(1); $('bmiProgress').style.width = pct + '%' }
+
+    // FOOD, STEPS, SLEEP (kept same)
+    function addWater(l){ state.water = +(state.water + l).toFixed(2); // liters
+      // update glasses based on glass size
+      const glassSize = Number(state.waterPrefs.glassSizeMl) || 250;
+      const glasses = +( (l * 1000) / glassSize ).toFixed(2);
+      state.waterPrefs.glassCountToday = +(state.waterPrefs.glassCountToday + glasses).toFixed(2);
+      state.twin.hydrationPct = Math.min(100, Math.round((state.water / 2) * 100));
+      saveState(); refreshAll(); updateNextGoal();
+    }
+    function addSteps(n){ state.steps += n; $('stepsVal').textContent = state.steps; $('distVal').textContent = (state.steps*0.0008).toFixed(2) + ' km'; updateDigitalTwin(); saveState(); }
+    function addFood(){ const text = $('foodInput').value.trim(); if(!text) return; const cal = estimateCal(text); state.meals.push({text,cal,t:Date.now()}); state.calories += cal; $('calVal').textContent = state.calories; renderFoodList(); $('foodInput').value=''; refreshChart(); saveState(); }
+    function manualAddMeal(){ const name = $('mealName').value.trim(); const cal = Number($('mealCal').value)||0; if(!name) return; state.meals.push({text:name,cal,t:Date.now()}); state.calories += cal; $('mealsArea').textContent = renderMealsSummary(); $('calVal').textContent = state.calories; $('mealName').value='';$('mealCal').value=''; refreshChart(); saveState(); }
+    function addFoodSample(){ state.meals.push({text:'Sample meal: 1 plate rice', cal:450,t:Date.now()}); state.calories+=450; $('calVal').textContent = state.calories; renderFoodList(); refreshChart(); saveState(); }
+    function clearMeals(){ if(!confirm('Clear all meals?')) return; state.meals = []; state.calories = 0; saveState(); refreshAll(); }
+
+    function estimateCal(text){
+      const t=text.toLowerCase();
+      let cal = 200;
+      if(t.includes('egg')) cal += 80;
+      if(t.includes('rice')) cal += 350;
+      if(t.includes('salad')||t.includes('veggie')||t.includes('vegetable')) cal -= 60;
+      if(t.includes('pizza')) cal += 300;
+      if(t.includes('chocolate')) cal += 200;
+      if(t.match(/\b\d+\s?g\b/)) cal += 50;
+      return Math.max(50,cal);
+    }
+
+    function renderFoodList(){
+      const el = $('foodList'); if(state.meals.length===0) return el.textContent = 'No items yet';
+      el.innerHTML = state.meals.slice().reverse().map(m=>{
+        return `<div style="margin:6px 0;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);display:flex;justify-content:space-between;align-items:center">
+          <div style="max-width:70%"><div style="font-weight:600">${escapeHtml(m.text)}</div><div class="muted-compact" style="margin-top:4px">${new Date(m.t).toLocaleTimeString()}</div></div>
+          <div class="muted">${m.cal} kcal</div>
+        </div>`;
+      }).join('');
+    }
+    function renderMealsSummary(){ if(!state.meals.length) return 'No meals yet'; return state.meals.map(m=>`${m.text} (${m.cal} kcal)`).join(', ') }
+
+    function logSleep(){ const hrs = Number($('sleepHours').value); if(hrs === undefined || hrs === null || isNaN(hrs)) return; state.sleep.push({h:hrs,t:Date.now()}); $('sleepVal').textContent = hrs + ' hr'; const q = sleepQuality(hrs); $('sleepQual').textContent = q; $('sleepArea').textContent = `Logged ${hrs} hr — quality: ${q}`; $('sleepHours').value=''; state.twin.sleepLast = hrs; updateDigitalTwin(); refreshChart(); saveState(); }
+    function sleepQuality(h){ if(h<5) return 'Poor'; if(h<7) return 'Fair'; if(h<9) return 'Good'; return 'Excellent' }
+
+    // HABIT ANALYZER
+    function analyzeHabit(){ const h = $('habitName').value.trim(); if(!h) return; const safe = escapeHtml(h); const res = `Suggestion: turn the habit into a tiny micro-habit (1–5 min), attach it to an existing cue (e.g., after brushing teeth), and reward with a single check. Example micro-habit for "${safe}": start with 3 minutes. Use a phone reminder for 7 days.`; $('habitResult').textContent = res; }
+
+    // DOCTOR BOT
+    function sendChat(){ const text = $('chatInp').value.trim(); if(!text) return; pushMessage('user', text); $('chatInp').value=''; setTimeout(()=> botReply(text), 600) }
+    function pushMessage(who, text){ state.messages.push({who,text,t:Date.now()}); const container=$('messages'); const div=document.createElement('div'); div.className='msg '+(who==='user'?'user':'bot'); div.textContent = text; container.appendChild(div); container.scrollTop = container.scrollHeight; saveState() }
+    function botReply(text){
+      const t=text.toLowerCase();
+      let reply = "I'm not a doctor, but I can help with general guidance.";
+      if(/fever|temperature|hot|chills/.test(t)) reply = 'Symptoms include fever — monitor temperature. If above 38°C (100.4°F) or persistent >48 hours, seek care. Stay hydrated and rest.';
+      else if(/headache|migraine/.test(t)) reply = 'Try hydration, rest in a dark room, and over-the-counter pain relief if appropriate. If sudden or severe, seek urgent care.';
+      else if(/stomach|nausea|vomit|diarrhea/.test(t)) reply = 'Stomach issues often need hydration and bland food. If severe pain, blood, or signs of dehydration, see a clinician.';
+      else if(/covid|cough|sore throat/.test(t)) reply = 'Respiratory symptoms: isolate if contagious, test if available, monitor breathing. Seek immediate care for shortness of breath.';
+      else if(/mental|anxiet|depres|stress/.test(t)) reply = 'For mental health concerns: try breathing exercises, short walks, and talking to someone you trust. If you have thoughts of self-harm, contact local emergency services.';
+      else if(/prescription|medicine|drug/.test(t)) reply = 'I can provide general info but not prescribe. For medication changes contact your doctor or pharmacist.';
+      else reply = 'Thanks for sharing. Can you tell me when the symptoms started and how severe they are (mild/moderate/severe)?';
+      pushMessage('bot', reply);
+    }
+    function saveChat(){ const data = JSON.stringify(state.messages, null, 2); const blob = new Blob([data], {type:'application/json'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='doctor-chat.json'; a.click(); URL.revokeObjectURL(url); }
+
+    // MINI CHART
+    const miniCanvas = $('miniChart'); const mctx = miniCanvas?.getContext ? miniCanvas.getContext('2d') : null;
+    function refreshChart(){ if(!mctx) return; const w = miniCanvas.width; const h = miniCanvas.height; mctx.clearRect(0,0,w,h); mctx.fillStyle='rgba(255,255,255,0.02)'; mctx.fillRect(0,0,w,h); const waterPct = Math.min(1, state.water/2); const calPct = Math.min(1, state.calories/3000); mctx.fillStyle='rgba(45,212,191,0.9)'; mctx.fillRect(20,h-20, (w-60)*waterPct, 14); mctx.fillStyle='rgba(123,97,255,0.9)'; mctx.fillRect(20,h-44, (w-60)*calPct, 14); mctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--muted') || '#9aa4b2'; mctx.font='12px sans-serif'; mctx.fillText('Water (L)', 20, h-24); mctx.fillText('Calories', 20, h-48); }
+
+    // THEME
+    const themeBtn = $('themeBtn');
+    function applyTheme(theme){ if(theme === 'light') document.body.classList.add('light'); else document.body.classList.remove('light'); state.prefs.theme = theme; themeBtn.textContent = theme === 'light' ? 'Switch to dark' : 'Switch to light'; saveState(); }
+    themeBtn.addEventListener('click', ()=>{ applyTheme(state.prefs.theme === 'dark' ? 'light' : 'dark'); });
+
+    // VIEW
+    function show(id){ document.querySelectorAll('main section').forEach(s=>s.style.display='none'); const navBtns = document.querySelectorAll('nav .nav-links button'); navBtns.forEach(btn => btn.classList.remove('active')); const el = $(id); const btn = Array.from(navBtns).find(b => b.textContent.trim().toLowerCase() === id); if(btn) btn.classList.add('active'); if(el) el.style.display='block'; el?.classList?.add('fade-enter'); setTimeout(()=>el?.classList?.remove('fade-enter'), 10); }
+
+    // DIGITAL TWIN
+    function getCSSVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || ''; }
+    function updateDigitalTwin(){
+      try {
+        const twinEl = $('digitalTwin');
+        const emojiEl = $('digitalTwinEmoji');
+        const labelEl = $('digitalTwinLabel');
+        const hydrationPct = Math.round(Math.min(100, (state.water / 2) * 100));
+        state.twin.hydrationPct = hydrationPct;
+        const lastSleep = state.twin.sleepLast || (state.sleep.length ? state.sleep[state.sleep.length-1].h : 0);
+        state.twin.sleepLast = lastSleep;
+        const activityPct = Math.round(Math.min(100, (state.steps / 10000) * 100));
+        const sleepScore = lastSleep ? Math.min(lastSleep/8*100,100) : 0;
+        const score = hydrationPct * 0.4 + sleepScore * 0.4 + activityPct * 0.2;
+        let emoji = '🙂';
+        let bg = `linear-gradient(135deg, ${getCSSVar('--accent1-start')}, ${getCSSVar('--accent1-end')})`;
+        let label = `${hydrationPct}% hydration • ${lastSleep ? lastSleep + 'h' : '?'} sleep`;
+        if(score >= 80) { emoji = '💪'; bg = `linear-gradient(135deg, ${getCSSVar('--accent1-end')}, ${getCSSVar('--accent1-start')})`; label = `Great — ${label}`; }
+        else if(score >= 55) { emoji = '🙂'; bg = `linear-gradient(135deg, ${getCSSVar('--accent1-start')}, ${getCSSVar('--accent1-end')})`; label = `Good — ${label}`; }
+        else if(score >= 30) { emoji = '😐'; bg = 'linear-gradient(135deg,#ffd166,#ff7ab6)'; label = `Low — ${label}`; }
+        else { emoji = '😴'; bg = 'linear-gradient(135deg,#ff7ab6,#ffd166)'; label = `Needs care — ${label}`; }
+        emojiEl.textContent = emoji;
+        labelEl.textContent = label;
+        twinEl.style.background = bg;
+        twinEl.style.boxShadow = '0 8px 30px rgba(0,0,0,0.5), 0 0 24px rgba(0,0,0,0.15)';
+        twinEl.title = `Digital Twin — hydration ${hydrationPct}% • last sleep ${lastSleep} hr • steps ${state.steps}`;
+        state.twin.lastUpdated = Date.now();
+        const scale = 0.98 + (Math.min(100, Math.max(30, Math.round(score))) / 500);
+        twinEl.style.transform = `scale(${scale})`;
+      } catch (e) {
+        console.warn('Digital Twin update failed', e);
+      }
+    }
+
+    // HABIT DESIGNER (kept)
+    function aiHabitDesigner(){
+      const goal = $('habitGoal').value.trim(); if(!goal) return alert('Please enter a goal like "Better mornings" or "More focus".'); const plan = generateHabitPlan(goal); const planEl = $('habitPlan'); planEl.innerHTML = '<div style="padding:10px;border-radius:8px;background:rgba(255,255,255,0.02)">' + planToHtml(plan) + '</div>';
+      // quick actions (copy/add)
+      const quickRow = document.createElement('div'); quickRow.style.marginTop = '8px'; quickRow.style.display = 'flex'; quickRow.style.gap = '8px';
+      const addMicroBtn = document.createElement('button'); addMicroBtn.className = 'btn ghost'; addMicroBtn.textContent = 'Add micro-habit'; addMicroBtn.onclick = () => { const micro = plan.micro || (plan.steps && plan.steps[0]) || 'Do a 5-minute start'; state.habits.streak = (state.habits.streak||0) + 1; $('habitResult').textContent = `Added micro-habit: ${micro}`; $('streakVal').textContent = state.habits.streak + ' days'; saveState(); toast('Micro-habit added to your demo habits (local).'); };
+      const copyBtn = document.createElement('button'); copyBtn.className = 'btn'; copyBtn.textContent = 'Copy plan'; copyBtn.onclick = () => { const txt = planToPlain(plan); navigator.clipboard?.writeText(txt).then(()=> toast('Plan copied to clipboard'), ()=> alert('Copy failed')); };
+      quickRow.appendChild(addMicroBtn); quickRow.appendChild(copyBtn);
+      const existing = planEl.querySelector('.quick-row'); if(existing) existing.remove(); quickRow.className = 'quick-row'; planEl.appendChild(quickRow);
+    }
+    function planToHtml(plan){ if(typeof plan === 'string') return `<pre style="white-space:pre-wrap;margin:0">${escapeHtml(plan)}</pre>`; let html = `<strong>${escapeHtml(plan.title || 'Personal Plan')}</strong><br/><br/>`; if(plan.steps && plan.steps.length){ html += '<ol style="padding-left:18px;margin:6px 0">'; plan.steps.forEach(s=> html += `<li style="margin-bottom:6px">${escapeHtml(s)}</li>`); html += '</ol>'; } if(plan.notes) html += `<div class="muted-compact" style="margin-top:6px">${escapeHtml(plan.notes)}</div>`; return html; }
+    function planToPlain(plan){ if(typeof plan === 'string') return plan; let out = (plan.title ? plan.title + "\n\n" : ''); if(plan.steps && plan.steps.length){ plan.steps.forEach((s,i)=> out += `${i+1}. ${s}\n`); } if(plan.notes) out += `\nNotes: ${plan.notes}\n`; return out; }
+    function generateHabitPlan(goal){ const g = goal.toLowerCase(); const now = new Date(); const weekday = now.toLocaleDateString(undefined, {weekday:'long'}); const build = (title, steps, micro, notes) => ({title,steps,micro,notes}); if(g.includes('sleep') || g.includes('bed') || g.includes('rest')){ return build('Sleep Reset Routine',['No screens 60 min before bedtime (start with 15 min).','Warm shower or light stretching 20 min before bed.','Avoid large meals 2 hrs before sleep.','Set a consistent sleep time and pre-sleep cue.'],'No screens 15 min before bedtime',`Start small and increase. Aim to keep consistent schedule from ${weekday}. Track sleep for 14 days.`); } if(g.includes('morning') || g.includes('energy') || g.includes('wake')){ return build('Morning Energy Booster',['Drink 300–500 ml water right after waking.','Expose yourself to natural light for 5–10 min.','Do a 5–10 min mobility routine (stretch, neck rolls).','Have a protein-rich breakfast within 1 hour.'],'Drink 300 ml water after waking',`Tie micro-habit to your wake-up routine. Use alarm + phone reminder for ${weekday} mornings.`); } if(g.includes('focus') || g.includes('study') || g.includes('work')){ return build('Focus Builder',['Set 25-min focus blocks (Pomodoro) with clear objective.','Keep a notepad: write one objective per block.','Put phone on Do Not Disturb for focus blocks.','Review progress at end of day.'],'Start a single 25-min focus block','Begin with one block per day and slowly increase blocks per day.'); } if(g.includes('fitness') || g.includes('exercise') || g.includes('weight')){ return build('Daily Fitness Starter',['Begin with 15–20 min brisk walk or bodyweight routine.','Schedule workouts as appointments in your calendar.','Ensure 7–8 hrs sleep for recovery.','Hydrate before and after activity.'],'15 min walk after breakfast','Gradually increase time or intensity each week.'); } const foundNumber = (g.match(/\b(\d{1,3})(\s?(min|mins|minutes|km|times|x)?)\b/)); if(foundNumber){ const num = foundNumber[1]; return build(`Micro habit: ${num}`,[`Start with ${num} minutes as a micro-habit.`, 'Attach it to a reliable daily cue.', 'Mark completion in the app.'], `Start with ${num} minutes`, 'Small consistent steps are better than irregular long sessions.'); } return build('Balanced Starter Plan',['Pick one micro-habit to start (5–10 min).','Attach it to an existing routine (e.g., after brushing teeth).','Log completion daily and reward small wins.','Review weekly and adjust.'],'Pick 5-min micro-habit and attach to routine','Small wins build into lasting habits. Start simple.'); }
+
+    // TOAST
+    let toastTimer = null;
+    function toast(msg){
+      let el = document.getElementById('hbToast');
+      if(!el){
+        el = document.createElement('div');
+        el.id = 'hbToast';
+        el.style.position = 'fixed';
+        el.style.right = '20px';
+        el.style.bottom = '20px';
+        el.style.padding = '10px 12px';
+        el.style.borderRadius = '10px';
+        el.style.background = 'linear-gradient(90deg,var(--accent1-start),var(--accent1-end))';
+        el.style.color = '#021220';
+        el.style.fontWeight = '600';
+        el.style.boxShadow = '0 8px 30px rgba(0,0,0,0.4)';
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.opacity = '1';
+      if(toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=>{ el.style.opacity = '0'; }, 2500);
+    }
+
+    // INITIALIZATION
+    (function init(){
+      // populate profile
+      $('inpName').value = state.name;
+      $('inpAge').value = state.age;
+      $('inpHeight').value = state.height;
+      $('inpWeight').value = state.weight;
+      $('nameTitle').textContent = state.name;
+      $('navName').textContent = state.name;
+      $('navAvatar').textContent = state.name?.charAt(0)?.toUpperCase() || 'U';
+      $('navMeta').textContent = `${$('inpGender').value} · ${state.age} yrs`;
+
+      // messages
+      const messagesContainer = $('messages');
+      if(!state.messages || state.messages.length === 0){
+        pushMessage('bot', `Hi ${state.name} — I'm your Doctor Bot. Share a symptom or ask a question.`);
+      } else {
+        state.messages.forEach(m => {
+          const div=document.createElement('div');
+          div.className='msg '+(m.who==='user'?'user':'bot');
+          div.textContent = m.text || m;
+          messagesContainer.appendChild(div);
+        });
+      }
+
+      // compute BMI initial
+      (function(){ const he=(state.height/100); const bmi = state.weight/(he*he); updateStateBMI(bmi); })();
+
+      // water prefs UI wiring
+      $('glassSizeLabel').textContent = `${state.waterPrefs.glassSizeMl} ml`;
+      $('glassTarget').textContent = state.waterPrefs.targetGlasses;
+      $('glassCount').textContent = state.waterPrefs.glassCountToday;
+      $('remToggle').checked = !!state.waterPrefs.remindersOn;
+      $('remInterval').value = state.waterPrefs.reminderIntervalHours || 2;
+      $('remSound').checked = !!state.waterPrefs.soundOn;
+
+      // event bindings
+      $('remToggle').addEventListener('change', (e)=>{
+        state.waterPrefs.remindersOn = e.target.checked;
+        saveState();
+        if(state.waterPrefs.remindersOn) startReminderScheduler(); else stopReminderScheduler();
+        toast(`Reminders ${state.waterPrefs.remindersOn ? 'enabled' : 'disabled'}`);
+      });
+      $('remInterval').addEventListener('change', (e)=>{
+        const v = Number(e.target.value) || 2;
+        state.waterPrefs.reminderIntervalHours = Math.max(1, Math.min(12, v));
+        scheduleNextReminderFromNow(state.waterPrefs.reminderIntervalHours);
+        saveState();
+        toast(`Interval set to ${state.waterPrefs.reminderIntervalHours} hours`);
+      });
+      $('remSound').addEventListener('change', (e)=>{
+        state.waterPrefs.soundOn = !!e.target.checked;
+        saveState();
+      });
+
+      // calculate initial displays
+      renderFoodList();
+      refreshChart();
+      updateDigitalTwin();
+      refreshAll();
+
+      // greet & time
+      $('greetingSmall').textContent = `Hello, ${state.name}`;
+      $('timeSmall').textContent = nowTimeString();
+      setInterval(()=> $('timeSmall').textContent = nowTimeString(), 60*1000);
+
+      // start reminder scheduler if on
+      if(state.waterPrefs.remindersOn) startReminderScheduler();
+
+      // input shortcuts
+      $('habitGoal').addEventListener('keydown', (e)=>{ if(e.key==='Enter') aiHabitDesigner(); });
+      $('habitName').addEventListener('keydown', (e)=>{ if(e.key==='Enter') analyzeHabit(); });
+
+      saveState();
+    })();
+
+    // REFRESH UI
+    function refreshAll(){
+      resetWaterIfNeeded();
+      $('nameTitle').textContent = state.name;
+      renderFoodList();
+      $('calVal').textContent = state.calories;
+      $('waterVal').textContent = state.water.toFixed(2) + ' L';
+      $('stepsVal').textContent = state.steps;
+      $('distVal').textContent = (state.steps*0.0008).toFixed(2) + ' km';
+      if(state.meals.length) $('mealsArea').textContent = renderMealsSummary();
+      refreshChart();
+      updateDigitalTwin();
+      $('streakVal').textContent = (state.habits.streak||0) + ' days';
+      // water tracker UI update
+      const targetGlasses = Number(state.waterPrefs.targetGlasses) || 8;
+      const glassSizeMl = Number(state.waterPrefs.glassSizeMl) || 250;
+      const glassCount = Number(state.waterPrefs.glassCountToday) || 0;
+      $('glassCount').textContent = glassCount;
+      $('glassTarget').textContent = targetGlasses;
+      $('glassSizeLabel').textContent = `${glassSizeMl} ml`;
+      const litersTarget = (targetGlasses * glassSizeMl) / 1000;
+      const pct = Math.min(100, Math.round((state.water / Math.max(0.1, litersTarget)) * 100));
+      $('waterFill').style.width = pct + '%';
+      saveState();
+    }
+
+    // NEXT GOAL helper
+    function updateNextGoal(){
+      if(state.water < 1) $('nextGoal').textContent = 'Water 1.5L';
+      else if(state.steps < 3000) $('nextGoal').textContent = 'Walk 3k steps';
+      else if(state.calories < 1200) $('nextGoal').textContent = 'Healthy snack';
+      else $('nextGoal').textContent = 'Maintain today';
+    }
+
+    // countdown display
+    function updateCountdownDisplay(){
+      const next = state.waterPrefs.nextReminderAt;
+      if(!next){ $('nextReminder').textContent = '—'; return; }
+      const diff = Number(next) - Date.now();
+      if(diff <= 0) { $('nextReminder').textContent = 'Now'; return; }
+      const hrs = Math.floor(diff / (1000*60*60));
+      const mins = Math.floor((diff % (1000*60*60)) / (1000*60));
+      const secs = Math.floor((diff % (1000*60)) / 1000);
+      $('nextReminder').textContent = `${hrs}h ${mins}m`;
+    }
+
+    // export/import and other utilities
+    function downloadBackup(){ const data = {state}; const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='healthbuddy-backup.json'; a.click(); }
+    function restoreDefault(){ if(!confirm('Reset demo data to defaults?')) return; state = JSON.parse(JSON.stringify(stateDefault)); saveState(); refreshAll(); alert('Demo reset.'); }
+
+    // Accessibility shortcut
+    document.addEventListener('keydown', (e)=>{ if(e.ctrlKey && e.key === 'k'){ e.preventDefault(); $('chatInp').focus(); } });
+
+    // helpers to expose glass add actions
+    function addGlass(n){
+      // n represents glasses (1 = one glass of configured size)
+      addGlassInternal(n);
+    }
+    function addGlassInternal(n){
+      // reuse addGlass but avoid name clash
+      resetWaterIfNeeded();
+      const glassSize = Number(state.waterPrefs.glassSizeMl) || 250;
+      const addedLiters = (glassSize * n) / 1000;
+      state.water = +(Number(state.water) + addedLiters).toFixed(2);
+      state.waterPrefs.glassCountToday = +(state.waterPrefs.glassCountToday + n).toFixed(2);
+      state.twin.hydrationPct = Math.min(100, Math.round((state.water / 2) * 100));
+      saveState();
+      refreshAll();
+      toast(`Added ${Math.round(n*glassSize)} ml`);
+      updateNextGoal();
+    }
+
+    // expose a small API to change glass size quickly (not in UI but useful)
+    function setGlassSizeMl(n){ state.waterPrefs.glassSizeMl = Number(n); saveState(); refreshAll(); }
+
+    // End of script
+  </script>
+</body>
+</html>
